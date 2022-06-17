@@ -1,0 +1,48 @@
+{
+  "name": "chain-bridge",
+  "version": "1.0.0",
+  "description": "a npm package that connects to blockchains",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/com2us-sangdeok/chain-bridge.git"
+  },
+  "keywords": [
+    "blockchain"
+  ],
+  "author": "sangdeok",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/com2us-sangdeok/chain-bridge/issues"
+  },
+  "homepage": "https://github.com/com2us-sangdeok/chain-bridge#readme",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "tslib": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/app-root-path": "^1.2.4",
+    "@types/chai": "^4.2.15",
+    "@types/mocha": "^8.2.1",
+    "@types/node": "^14.14.31",
+    "chai": "^4.3.0",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.2",
+    "@terra-money/terra.js": "^3.0.4"
+  },
+  "peerDependencies": {
+    "@terra-money/terra.js": "^3.0.4",
+    "ts-node": "^10.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@terra-money/terra.js": {
+      "optional": true
+    },
+    "ts-node": {
+      "optional": true
+    }
+  }
+}
