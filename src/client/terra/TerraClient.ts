@@ -22,6 +22,8 @@ export class TerraClient implements Client {
      */
     terra: any
 
+    lcd: any
+
     // -------------------------------------------------------------------------
     // Public Implemented Properties
     // -------------------------------------------------------------------------
@@ -76,7 +78,8 @@ export class TerraClient implements Client {
     protected loadDependencies(): void {
         try {
             const terra = this.options.client || PlatformTools.load("terra")
-            this.terra = terra.LCDClient({
+            this.terra = terra;
+            this.lcd = this.terra.LCDClient({
                 URL: this.options.nodeURL,
                 chainID: this.options.chainID
             })
@@ -89,8 +92,14 @@ export class TerraClient implements Client {
     }
 
     /**
-     * Creates a new connection pool for a given database credentials.
+     * Creates an account.
      */
+    public createAccount(mnemonic: string): Promise<any> {
+        const mk = new this.terra.MnemonicKey({
+            mnemonic: mnemonic,
+        });
+        return this.lcd.wallet(mk);
+    }
     // protected createPool(connectionOptions: any): Promise<any> {
     //     // create a connection pool
     //     const pool = this.mysql.createPool(connectionOptions)
