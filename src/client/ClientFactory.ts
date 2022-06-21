@@ -5,17 +5,20 @@ import {TerraClient} from "./terra/TerraClient";
 import {MissingClientError} from "../error/MissingClientError";
 
 /**
- * Helps to create drivers.
+ * Helps to create clients.
  */
 export class ClientFactory {
     /**
-     * Creates a new driver depend on a given connection's driver type.
+     * Creates a new client depend on a given terra's client type.
      */
     create(connection: BlockchainClient): Client {
         const { type } = connection.options
         switch (type) {
             case "terra":
                 return new TerraClient(connection)
+
+            // todo: EthereumClient ...
+
             default:
                 throw new MissingClientError(type, [
                     "ethereum",

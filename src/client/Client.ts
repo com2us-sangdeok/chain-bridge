@@ -2,9 +2,6 @@ import {BaseBlockchainClientOptions} from "../blockchain-client/BaseBlockchainCl
 
 export type ReturningType = "insert" | "update" | "delete"
 
-/**
- * Driver organizes TypeORM communication with specific database management system.
- */
 export interface Client {
     /**
      * Connection options.
@@ -12,15 +9,10 @@ export interface Client {
     options: BaseBlockchainClientOptions
 
     /**
-     * Database name used to perform all write queries.
-     *
-     * todo: probably move into query runner.
+     * Blockchain name used to perform all write queries.
      */
     blockchain?: string
 
-    /**
-     * Performs connection to the database.
-     * Depend on driver type it may create a connection pool.
-     */
-    connect(): Promise<void>
+    createAccount(mnemonic: string): Promise<any>
+    accountInfo(address: string): Promise<any>
 }

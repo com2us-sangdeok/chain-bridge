@@ -1,6 +1,6 @@
 export interface TerraClientConfig {
     /**
-     * Connection node url where perform connection to.
+     * Blockchain node url where perform terra to.
      */
     readonly nodeURL?: string
 

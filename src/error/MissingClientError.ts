@@ -1,7 +1,7 @@
 import {ChainBridgeError} from "./ChainBridgeError";
 
 /**
- * Thrown when consumer specifies driver type that does not exist or supported.
+ * Thrown when consumer specifies client type that does not exist or supported.
  */
 export class MissingClientError extends ChainBridgeError {
     constructor(clientType: string, availableClients: string[] = []) {

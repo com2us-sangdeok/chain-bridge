@@ -4,21 +4,18 @@ import {BlockchainClient} from "../../blockchain-client";
 import {TerraConnectionOptions} from "./TerraConnectionOptions";
 import {ClientPackageNotInstalledError} from "../../error/ClientPackageNotInstalledError";
 
-/**
- * Organizes communication with MySQL DBMS.
- */
 export class TerraClient implements Client {
     // -------------------------------------------------------------------------
     // Public Properties
     // -------------------------------------------------------------------------
 
     /**
-     * Connection used by driver.
+     * Connection used by client.
      */
     connection: BlockchainClient
 
     /**
-     * Mysql underlying library.
+     * Terra underlying library.
      */
     terra: any
 
@@ -41,7 +38,6 @@ export class TerraClient implements Client {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-
     constructor(connection: BlockchainClient) {
         this.connection = connection
         this.options = {
@@ -55,17 +51,23 @@ export class TerraClient implements Client {
     // -------------------------------------------------------------------------
     // Public Methods
     // -------------------------------------------------------------------------
-
-    /**
-     * Performs connection to the database.
-     */
-    async connect(): Promise<void> {
-        if (!this.blockchain) {
-        }
+    async accountInfo(address: string): Promise<any> {
+        return this.lcd.auth.accountInfo(address)
     }
 
-    async accountInfo(address: string): Promise<void> {
-        return this.terra.auth.accountInfo(address)
+    /**
+     * Creates an account.
+     */
+    public createAccount(mnemonic: string): Promise<any> {
+        const mk = new this.terra.MnemonicKey({
+            mnemonic: mnemonic,
+        });
+
+        console.log('accAddress: ', mk.accAddress)
+        console.log('publicKey: ', mk.publicKey)
+        console.log('mnemonic: ', mk.mnemonic)
+
+        return this.lcd.wallet(mk);
     }
 
     // -------------------------------------------------------------------------
@@ -79,7 +81,7 @@ export class TerraClient implements Client {
         try {
             const terra = this.options.client || PlatformTools.load("terra")
             this.terra = terra;
-            this.lcd = this.terra.LCDClient({
+            this.lcd = new this.terra.LCDClient({
                 URL: this.options.nodeURL,
                 chainID: this.options.chainID
             })
@@ -91,29 +93,4 @@ export class TerraClient implements Client {
         }
     }
 
-    /**
-     * Creates an account.
-     */
-    public createAccount(mnemonic: string): Promise<any> {
-        const mk = new this.terra.MnemonicKey({
-            mnemonic: mnemonic,
-        });
-        return this.lcd.wallet(mk);
-    }
-    // protected createPool(connectionOptions: any): Promise<any> {
-    //     // create a connection pool
-    //     const pool = this.mysql.createPool(connectionOptions)
-    //
-    //     // make sure connection is working fine
-    //     return new Promise<void>((ok, fail) => {
-    //         // (issue #610) we make first connection to database to make sure if connection credentials are wrong
-    //         // we give error before calling any other method that creates actual query runner
-    //         pool.getConnection((err: any, connection: any) => {
-    //             if (err) return pool.end(() => fail(err))
-    //
-    //             connection.release()
-    //             ok(pool)
-    //         })
-    //     })
-    // }
 }

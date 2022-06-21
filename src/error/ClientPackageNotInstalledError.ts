@@ -1,7 +1,7 @@
 import {ChainBridgeError} from "./ChainBridgeError";
 
 /**
- * Thrown when required driver's package is not installed.
+ * Thrown when required client's package is not installed.
  */
 export class ClientPackageNotInstalledError extends ChainBridgeError {
     constructor(driverName: string, packageName: string) {

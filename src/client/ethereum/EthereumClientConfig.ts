@@ -1,6 +1,6 @@
 export interface EthereumClientConfig {
     /**
-     * Connection node url where perform connection to.
+     * Blockchain node url where perform ethereum to.
      */
     readonly nodeURL?: string
 }

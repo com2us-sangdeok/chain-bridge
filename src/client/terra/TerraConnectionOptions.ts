@@ -1,5 +1,5 @@
 /**
- * Postgres-specific connection options.
+ * Terra-specific terra options.
  */
 import {BaseBlockchainClientOptions} from "../../blockchain-client/BaseBlockchainClientOptions";
 import {TerraClientConfig} from "./TerraClientConfig";

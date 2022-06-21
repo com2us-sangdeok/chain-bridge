@@ -1,5 +1,5 @@
 /**
- * Postgres-specific connection options.
+ * Ethereum-specific ethereum options.
  */
 import {BaseBlockchainClientOptions} from "../../blockchain-client/BaseBlockchainClientOptions";
 import {EthereumClientConfig} from "./EthereumClientConfig";
@@ -14,7 +14,7 @@ export interface EthereumConnectionOptions
 
     /**
      * The client object
-     * This defaults to `require("@terra-money")`.
+     * This defaults to `require("web3")`.
      */
     readonly client?: any
 }

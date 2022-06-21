@@ -16,19 +16,16 @@ export class TerraModule {
         });
         return this.lcd.wallet(mk);
     }
-}
 
-// module.exports = {
-//     // wallet 생성
-//     createWallet: function() {
-//         const mk = new MnemonicKey({
-//             mnemonic: mnemonic,
-//         });
-//         return terra.wallet(mk);
-//     },
-//     // 컨트렉트 배포
-//     deployContract: function() {
-//
-//     },
-//
-// };
+    public mnemonic(mnemonic: string): any {
+        const mk = new MnemonicKey({
+            mnemonic: mnemonic,
+        });
+        return mk
+    }
+
+    public accountInfo(address: string): any {
+        return this.lcd.auth.accountInfo(address)
+    }
+
+}
