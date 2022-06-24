@@ -4,12 +4,9 @@ import {Client} from "./Client";
 import {TerraClient} from "./terra/TerraClient";
 import {MissingClientError} from "../error/MissingClientError";
 
-/**
- * Helps to create clients.
- */
 export class ClientFactory {
     /**
-     * Creates a new client depend on a given terra's client type.
+     * Creates a new client depend on a given blockchain client type.
      */
     create(connection: BlockchainClient): Client {
         const { type } = connection.options

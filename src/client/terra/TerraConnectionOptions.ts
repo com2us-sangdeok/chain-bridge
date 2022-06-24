@@ -7,14 +7,7 @@ import {TerraClientConfig} from "./TerraClientConfig";
 export interface TerraConnectionOptions
     extends BaseBlockchainClientOptions,
         TerraClientConfig {
-    /**
-     * Blockchain type.
-     */
-    readonly type: "terra"
 
-    /**
-     * The client object
-     * This defaults to `require("terra-money")`.
-     */
+    readonly type: "terra"
     readonly client?: any
 }

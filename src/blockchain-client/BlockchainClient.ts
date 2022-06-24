@@ -5,14 +5,10 @@ import {ClientFactory} from "../client/ClientFactory";
 export class BlockchainClient {
     // readonly "@instanceof" = Symbol.for("BlockchainClient")
 
-    /**
-     * Public Readonly Properties
-     * Connection options.
-     */
     readonly options: BlockchainClientOptions
 
     /**
-     * Blockchain client used by this terra.
+     * Blockchain client
      */
     client: Client
 

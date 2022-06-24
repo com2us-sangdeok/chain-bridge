@@ -17,17 +17,10 @@ export class PlatformTools {
         try {
             // switch case to explicit require statements for webpack compatibility.
             switch (name) {
-                /**
-                 * ethereum (web3)
-                 */
                 case "ethereum":
                     return require("web3")
-                /**
-                 * terra
-                 */
                 case "terra":
                     return require("@terra-money/terra.js")
-
             }
         } catch (err) {
             return require(path.resolve(

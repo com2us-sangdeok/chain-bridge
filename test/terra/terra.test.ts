@@ -17,9 +17,6 @@ describe("Connection", () => {
             console.log(result)
         });
 
-        it('get account info', async function() {
-            const result = await terra.client.accountInfo('terra1k6yu867wqaar5fzr09sqgywdwmulk7mx3ydtfq');
-            console.log(result)
-        })
+
     })
 })

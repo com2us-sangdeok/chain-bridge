@@ -1,4 +1,5 @@
 import {BaseBlockchainClientOptions} from "../blockchain-client/BaseBlockchainClientOptions";
+import {Account} from "./type/Account";
 
 export type ReturningType = "insert" | "update" | "delete"
 
@@ -7,12 +8,13 @@ export interface Client {
      * Connection options.
      */
     options: BaseBlockchainClientOptions
-
-    /**
-     * Blockchain name used to perform all write queries.
-     */
     blockchain?: string
 
-    createAccount(mnemonic: string): Promise<any>
-    accountInfo(address: string): Promise<any>
+    createAccount(passphrase: string): Account
+    signTransaction(transaction: any, privateKey: string): Promise<any>
+    sendSignedTransaction(transaction: string): Promise<any>
+    getSequence(address: string): Promise<number>
+    getTransaction(txhash: string): Promise<any>
+    // decodeRawTransaction(transaction: string): any;
+    // callContract(): void //view
 }

@@ -7,14 +7,7 @@ import {EthereumClientConfig} from "./EthereumClientConfig";
 export interface EthereumConnectionOptions
     extends BaseBlockchainClientOptions,
         EthereumClientConfig {
-    /**
-     * Blockchain type.
-     */
-    readonly type: "ethereum"
 
-    /**
-     * The client object
-     * This defaults to `require("web3")`.
-     */
+    readonly type: "ethereum"
     readonly client?: any
 }

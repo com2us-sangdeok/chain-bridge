@@ -3,6 +3,8 @@ import {Client} from "../Client";
 import {BlockchainClient} from "../../blockchain-client";
 import {TerraConnectionOptions} from "./TerraConnectionOptions";
 import {ClientPackageNotInstalledError} from "../../error/ClientPackageNotInstalledError";
+import {Account} from "../type/Account";
+import {ChainBridgeError} from "../../error/ChainBridgeError";
 
 export class TerraClient implements Client {
     // -------------------------------------------------------------------------
@@ -49,34 +51,9 @@ export class TerraClient implements Client {
     }
 
     // -------------------------------------------------------------------------
-    // Public Methods
-    // -------------------------------------------------------------------------
-    async accountInfo(address: string): Promise<any> {
-        return this.lcd.auth.accountInfo(address)
-    }
-
-    /**
-     * Creates an account.
-     */
-    public createAccount(mnemonic: string): Promise<any> {
-        const mk = new this.terra.MnemonicKey({
-            mnemonic: mnemonic,
-        });
-
-        console.log('accAddress: ', mk.accAddress)
-        console.log('publicKey: ', mk.publicKey)
-        console.log('mnemonic: ', mk.mnemonic)
-
-        return this.lcd.wallet(mk);
-    }
-
-    // -------------------------------------------------------------------------
     // Protected Methods
     // -------------------------------------------------------------------------
 
-    /**
-     * Loads all client dependencies.
-     */
     protected loadDependencies(): void {
         try {
             const terra = this.options.client || PlatformTools.load("terra")
@@ -92,5 +69,48 @@ export class TerraClient implements Client {
             )
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Public Methods
+    // -------------------------------------------------------------------------
+
+    public createAccount(mnemonic: string): Account {
+        const mk = new this.terra.MnemonicKey({
+            mnemonic: mnemonic,
+        });
+
+        const account: Account = {
+            address: mk.accAddress,
+            publicKey: mk.publicKey.key,
+            privateKey: mk.mnemonic
+        }
+
+        try {
+            this.lcd.wallet(mk)
+        } catch (e) {
+            throw new ChainBridgeError(`error occurred while creating an account.`)
+        }
+
+        return account;
+    }
+
+    getSequence(address: string): Promise<number> {
+        return Promise.resolve(0);
+    }
+
+    getTransaction(txhash: string): Promise<any> {
+        return Promise.resolve(undefined);
+    }
+
+    sendSignedTransaction(transaction: string): Promise<any> {
+        const tx = this.lcd.tx.decode(transaction)
+        return this.lcd.tx.broadcast(tx);
+    }
+
+    signTransaction(transaction: any, privateKey: string): Promise<any> {
+        return Promise.resolve(undefined);
+    }
+
+
 
 }
