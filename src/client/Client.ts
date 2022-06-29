@@ -1,7 +1,6 @@
 import {BaseBlockchainClientOptions} from "../blockchain-client/BaseBlockchainClientOptions";
 import {Account} from "./type/Account";
-
-export type ReturningType = "insert" | "update" | "delete"
+import {CreateTxOptions, SignerOptions} from "@terra-money/terra.js";
 
 export interface Client {
     /**
@@ -11,10 +10,23 @@ export interface Client {
     blockchain?: string
 
     createAccount(passphrase: string): Account
-    signTransaction(transaction: any, privateKey: string): Promise<any>
-    sendSignedTransaction(transaction: string): Promise<any>
-    getSequence(address: string): Promise<number>
-    getTransaction(txhash: string): Promise<any>
-    // decodeRawTransaction(transaction: string): any;
-    // callContract(): void //view
+
+    // todo: check ethereum nonce
+    getSequence(wallet: any): Promise<number>
+    // todo: check ethereum create tx
+    createTx(signers: SignerOptions[], options: CreateTxOptions): Promise<any>
+    // todo: check ethereum sign tx
+    signTx(unsignedTx: any, signData: any): Promise<any>
+    sendSignedTx(transaction: any): Promise<any>
+    getTx(txhash: string): Promise<any>
+    // todo: check ethereum get fee
+    getFee(tx: any, feePayer: any): any
+    encodeTx(tx: any): string
+    decodeTx(encodedTx: string): any
+    contractQuery(contractAddress: string, query: any): Promise<any> //for view, queries
+
+    // only for terra
+    wallet(mnemonic: string): any
+    getAccountNumber(wallet: any): Promise<number>
+    account(address: string): Promise<any>
 }
