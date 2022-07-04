@@ -1,7 +1,8 @@
 {
     "compilerOptions": {
-        "outDir": "dist",
         "allowSyntheticDefaultImports": true,
+        "baseUrl": "./",
+        "outDir": "lib",
         "esModuleInterop": true,
         "target": "ES2019",
         "lib": [
@@ -16,12 +17,15 @@
         "sourceMap": true,
         "noImplicitAny": true,
         "declaration": true,
+        "declarationMap": true,
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "stripInternal": true,
         "pretty": true,
         "strictNullChecks": true,
         "noUnusedLocals": true,
-        "downlevelIteration": true
-    }
+        "downlevelIteration": true,
+        "sourceRoot": "src"
+    },
+    "include": ["src"]
 }

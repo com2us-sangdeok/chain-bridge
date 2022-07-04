@@ -14,32 +14,32 @@ const options: BlockchainClientOptions = {
 const terra = new BlockchainClient(options)
 
 describe('Connection', () => {
-    describe('wallet test', function() {
+    describe('wallet test', function () {
         let wallet: any
         before(
-            async () =>(wallet = terra.client.wallet(test1))
+            async () => (wallet = terra.client.wallet(test1))
         )
 
-        it('create wallet', function() {
+        it('create wallet', function () {
             const result = terra.client.createAccount(user1)
             expect(result).not.to.be.null
             console.log('create wallet : ', result)
         });
 
-        it('get sequence', async function() {
+        it('get sequence', async function () {
             const result = await terra.client.getSequence(wallet)
             expect(result).not.to.be.null
             console.log('sequence : ', result);
         });
 
-        it('get accountNumber',  async function() {
+        it('get accountNumber', async function () {
             const result = await terra.client.getAccountNumber(wallet)
             expect(result).not.to.be.null
             expect(result).to.be.eql(1)
             console.log('accountNumber : ', result);
         })
 
-        it('get account', async function() {
+        it('get account', async function () {
             const result = await terra.client.account(wallet.key.accAddress);
             expect(result).not.to.be.null
             expect(result.address).to.be.eql('terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v')
@@ -48,25 +48,25 @@ describe('Connection', () => {
 
     })
 
-    describe('TX Test', function() {
-        const senderAddress:string = 'terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v'
+    describe('TX Test', function () {
+        const senderAddress: string = 'terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v'
         const recipientAddress: string = 'terra1k6yu867wqaar5fzr09sqgywdwmulk7mx3ydtfq'
         const tokenAddress: string = 'terra1wxvlkpqfekzc5macvm23cg724rxef6zdng0nl3t2ar7z3lxfyhmqf0zu55';
         let transferC2x: any
         let txObject: any
 
         before(
-            async () =>(
+            async () => (
                 transferC2x = new ContractMsg(senderAddress, tokenAddress, {
                     transfer: {
                         amount: '3',
                         recipient: recipientAddress,
                     },
                 }),
-                txObject = [transferC2x]
+                    txObject = [transferC2x]
             )
         )
-        it('get fee',  async function () {
+        it('get fee', async function () {
             const wallet = terra.client.wallet(test1)
             const result = await terra.client.getFee(txObject, wallet)
             expect(result).not.to.be.null
@@ -75,7 +75,7 @@ describe('Connection', () => {
             console.log('tx fee: ', result)
         })
 
-        it('create tx',  async function() {
+        it('create tx', async function () {
             const wallet = terra.client.wallet(test1)
             const fee = await terra.client.getFee(txObject, wallet)
 
@@ -92,7 +92,7 @@ describe('Connection', () => {
             console.log('create tx: ', result)
         })
 
-        it('sign tx',  async function() {
+        it('sign tx', async function () {
             const senderWallet = terra.client.wallet(test1)
             const fee = await terra.client.getFee(txObject, senderWallet)
             const unsignedTx = await terra.client.createTx(
@@ -109,7 +109,7 @@ describe('Connection', () => {
             console.log('sign tx : ', result);
         })
 
-        it('send sign tx',  async function() {
+        it('send sign tx', async function () {
             const senderWallet = terra.client.wallet(test1)
             const fee = await terra.client.getFee(txObject, senderWallet)
             const unsignedTx = await terra.client.createTx(
@@ -128,16 +128,16 @@ describe('Connection', () => {
             console.log('sign tx : ', result);
         })
 
-        it('contract query', async function() {
+        it('contract query', async function () {
             const result = await terra.client.contractQuery(tokenAddress, {
-                balance: { address: senderAddress },
+                balance: {address: senderAddress},
             });
 
             expect(result).not.to.be.null
             console.log('balance: ', result)
         })
 
-        it('get txhash', async function() {
+        it('get txhash', async function () {
             const txhash = 'CBB3CE6EB6997D2E0A0BEA973353DA820D9FFCE303D5476E99CFA04739D6FC3C'
             const result = await terra.client.getTx(txhash);
             expect(result).not.to.be.null
@@ -145,6 +145,7 @@ describe('Connection', () => {
             console.log('transaction : ', result);
         });
     })
+
 
     // describe('Contract Test', function() {
     //     it('upload contract', async function() {
