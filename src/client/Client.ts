@@ -1,6 +1,6 @@
-import {BaseBlockchainClientOptions} from "../blockchain-client/BaseBlockchainClientOptions";
-import {Account} from "./type/Account";
-import {CreateTxOptions, SignerOptions} from "@terra-money/terra.js";
+import { BaseBlockchainClientOptions } from "../blockchain-client/BaseBlockchainClientOptions";
+import { Account } from "./type/Account";
+import { LCDClient } from "@terra-money/terra.js";
 
 export interface Client {
     /**
@@ -9,24 +9,37 @@ export interface Client {
     options: BaseBlockchainClientOptions
     blockchain?: string
 
+
+    //denom => only for terra
+    getBalance(address: string): any
+
     createAccount(passphrase: string): Account
 
-    // todo: check ethereum nonce
     getSequence(wallet: any): Promise<number>
-    // todo: check ethereum create tx
-    createTx(signers: SignerOptions[], options: CreateTxOptions): Promise<any>
-    // todo: check ethereum sign tx
+
+    createTx(options: any): Promise<any>
+
     signTx(unsignedTx: any, signData: any): Promise<any>
+
     sendSignedTx(transaction: any): Promise<any>
+
     getTx(txhash: string): Promise<any>
-    // todo: check ethereum get fee
-    getFee(tx: any, feePayer: any): any
+
+    getFee(tx: any, feePayer: any, signerList?: string[]): any
+
     encodeTx(tx: any): string
+
     decodeTx(encodedTx: string): any
-    contractQuery(contractAddress: string, query: any): Promise<any> //for view, queries
+
+    contractQuery(contract: any, query: any): Promise<any> //for view, queries
 
     // only for terra
     wallet(mnemonic: string): any
+
     getAccountNumber(wallet: any): Promise<number>
+
     account(address: string): Promise<any>
+
+    getLcdClient(): LCDClient
+
 }
