@@ -1,14 +1,14 @@
 import { PlatformTools } from "../../platform/PlatformTools"
 import { Client } from "../Client";
 import { BlockchainClient } from "../../blockchain-client";
-import { TerraConnectionOptions } from "./TerraConnectionOptions";
+import { XplaConnectionOptions } from "./XplaConnectionOptions";
 import { ClientPackageNotInstalledError } from "../../error/ClientPackageNotInstalledError";
 import { Account } from "../type/Account";
 import { ChainBridgeError } from "../../error/ChainBridgeError";
-import { Wallet } from "@terra-money/terra.js/dist/client/lcd/Wallet";
-import { CreateTxOptions, Fee, LCDClient as LCDTerra, Msg } from "@terra-money/terra.js";
+import { Wallet } from "@xpla/xpla.js/dist/client/lcd/Wallet";
+import { CreateTxOptions, Fee, LCDClient as LCDXpla, Msg } from "@xpla/xpla.js";
 
-export class TerraClient implements Client {
+export class XplaClient implements Client {
   // -------------------------------------------------------------------------
   // Public Properties
   // -------------------------------------------------------------------------
@@ -19,9 +19,9 @@ export class TerraClient implements Client {
   connection: BlockchainClient
 
   /**
-   * Terra underlying library.
+   * Xpla underlying library.
    */
-  terra: any
+  xpla: any
 
   lcd: any
 
@@ -34,7 +34,7 @@ export class TerraClient implements Client {
   /**
    * Connection options.
    */
-  options: TerraConnectionOptions
+  options: XplaConnectionOptions
 
   /**
    * Master database used to perform all write queries.
@@ -48,9 +48,9 @@ export class TerraClient implements Client {
     this.connection = connection
     this.options = {
       ...connection.options,
-    } as TerraConnectionOptions
+    } as XplaConnectionOptions
 
-    // load terra package
+    // load xpla package
     this.loadDependencies()
   }
 
@@ -58,7 +58,7 @@ export class TerraClient implements Client {
   // Protected Methods
   // -------------------------------------------------------------------------
 
-  public getLcdClient(): LCDTerra {
+  public getLcdClient(): LCDXpla {
     return this.lcd
   }
 
@@ -78,7 +78,7 @@ export class TerraClient implements Client {
 
   public createAccount(mnemonic: string): Account {
 
-    const mk = new this.terra.MnemonicKey({
+    const mk = new this.xpla.MnemonicKey({
       mnemonic: mnemonic,
     })
 
@@ -129,7 +129,7 @@ export class TerraClient implements Client {
     return this.lcd.tx.txInfo(txhash)
   }
 
-  async getFee(msgs: Msg[], feePayer: string, signerList: string[]): Promise<any> {
+  async getFee(msgs: Msg[], feePayer: string, signerList: string[]): Promise<Fee> {
     const signers = []
 
     for (const signer of signerList) {
@@ -163,9 +163,9 @@ export class TerraClient implements Client {
     return this.lcd.wasm.contractQuery(contractAddress, query)
   }
 
-  // only for terra
+  // only for xpla
   wallet(mnemonic: string): any {
-    const mk = new this.terra.MnemonicKey({
+    const mk = new this.xpla.MnemonicKey({
       mnemonic: mnemonic,
     })
 
@@ -182,17 +182,17 @@ export class TerraClient implements Client {
 
   protected loadDependencies(): void {
     try {
-      const terra = this.options.client || PlatformTools.load("terra")
-      this.terra = terra
-      this.lcd = new this.terra.LCDClient({
+      const xpla = this.options.client || PlatformTools.load("xpla")
+      this.xpla = xpla
+      this.lcd = new this.xpla.LCDClient({
         URL: this.options.nodeURL,
         chainID: this.options.chainID,
       })
       this.chainID = this.options.chainID
     } catch (e) {
       throw new ClientPackageNotInstalledError(
-        "Terra",
-        "terra",
+        "Xpla",
+        "xpla",
       )
     }
   }

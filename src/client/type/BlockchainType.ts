@@ -2,5 +2,6 @@
  * Blockchain type.
  */
 export type BlockchainType =
-    | "ethereum"
-    | "terra"
+  | "ethereum"
+  | "terra"
+  | "xpla"

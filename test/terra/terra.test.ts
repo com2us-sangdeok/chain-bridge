@@ -1,6 +1,9 @@
-import {BlockchainClient, BlockchainClientOptions} from "../../src/index";
-import {expect} from "chai";
-import {ContractMsg} from "../../src/client/type/MappedContractType";
+import { BlockchainClient, BlockchainClientOptions } from "../../src/index";
+import { expect } from "chai";
+import { ContractMsg } from "../../src/client/type/MappedContractType";
+import {
+    MsgSend,
+} from "@terra-money/terra.js"
 
 const test1 = 'notice oak worry limit wrap speak medal online prefer cluster roof addict wrist behave treat actual wasp year salad speed social layer crew genius';
 const user1 = 'test test test high purchase tuition stool faith fine install that you unaware feed domain license impose boss human eager hat rent enjoy dawn';
@@ -46,6 +49,12 @@ describe('Connection', () => {
             console.log('account : ', result);
         })
 
+        it('get Balance', async function () {
+            const result = await terra.client.getBalance('terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v')
+            expect(result).not.to.be.null
+            console.log('balance: ', result)
+        })
+
     })
 
     describe('TX Test', function () {
@@ -80,7 +89,6 @@ describe('Connection', () => {
             const fee = await terra.client.getFee(txObject, wallet)
 
             const result = await terra.client.createTx(
-                [],
                 {
                     msgs: [transferC2x],
                     memo: '',
@@ -96,7 +104,6 @@ describe('Connection', () => {
             const senderWallet = terra.client.wallet(test1)
             const fee = await terra.client.getFee(txObject, senderWallet)
             const unsignedTx = await terra.client.createTx(
-                [],
                 {
                     msgs: [transferC2x],
                     memo: '441',
@@ -113,7 +120,6 @@ describe('Connection', () => {
             const senderWallet = terra.client.wallet(test1)
             const fee = await terra.client.getFee(txObject, senderWallet)
             const unsignedTx = await terra.client.createTx(
-                [],
                 {
                     msgs: [transferC2x],
                     memo: '447',
@@ -146,7 +152,55 @@ describe('Connection', () => {
         });
     })
 
+    describe('LUNA SEND', function () {
 
+        const senderAddress: string = 'terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v'
+        const recipientAddress: string = 'terra1k6yu867wqaar5fzr09sqgywdwmulk7mx3ydtfq'
+        const amount: string = '88888888uluna'
+        let msg: MsgSend
+        let signedWallet: any
+        let signedTx: any
+        let txHash: any
+
+
+        before(async () => (
+                msg = new MsgSend(
+                    senderAddress,
+                    recipientAddress,
+                    amount
+                )
+            )
+        )
+
+        it('sign wallet', async () => {
+
+            signedWallet = terra.client.wallet(test1)
+            expect(signedWallet).not.to.be.null
+            console.log('signed Wallet', signedWallet)
+        })
+
+        it('sign Tx', async () => {
+            signedTx = await signedWallet.createAndSignTx({
+                msgs: [msg]
+            })
+        })
+
+        it('broadcast', async function () {
+            this.timeout(10000)
+
+            txHash = await terra.client.sendSignedTx(signedTx)
+            expect(txHash).not.to.be.null
+            console.log(txHash)
+        })
+
+        it('get txHash Info', async () => {
+            const txHashInfo = await terra.client.getTx(txHash.txhash)
+            expect(txHashInfo).not.to.be.null
+            console.log(txHashInfo)
+
+        })
+
+    })
     // describe('Contract Test', function() {
     //     it('upload contract', async function() {
     //
