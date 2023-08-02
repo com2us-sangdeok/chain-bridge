@@ -1,5 +1,7 @@
-import {BlockchainType} from "../client/type/BlockchainType";
+import { BlockchainType } from "../type/BlockchainType";
 
 export interface BaseBlockchainClientOptions {
-    readonly type: BlockchainType
+  readonly type: BlockchainType
+  readonly nodeURL?: string
+  readonly chainID?: string
 }

@@ -1,4 +1,4 @@
-export { BlockchainClient } from "./blockchain-client/BlockchainClient"
-export { BlockchainClientOptions } from "./blockchain-client/BlockchainClientOptions"
-export { Client } from "./client/Client"
-export { TerraModule } from "./test-module/terra-module"
+export * from "./blockchain-client"
+export * from "./client"
+export * from "./error"
+export * from "./type"

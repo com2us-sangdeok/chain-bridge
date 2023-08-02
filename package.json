@@ -1,11 +1,12 @@
 {
   "name": "@blockchain/chain-bridge",
-  "version": "0.0.1",
+  "version": "1.0.3",
+  "pre_version": "1.0.2",
   "description": "a npm package that connects to blockchains",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {
-    "test": "mocha test/terra-module.test.js",
+    "test": "mocha test/terra/terra.test.ts",
     "build": "rm -rf ./lib/* && tsc",
     "build-linux": "rm -rf ./dist/* && pkg . --out-path dist --targets node8-linux-x64",
     "test-fast": "mocha --file ./dist/test/connection.js --bail --recursive --timeout 60000 ./dist/test"
@@ -20,8 +21,8 @@
   "keywords": [
     "blockchain"
   ],
-  "author": "sangdeok",
-  "license": "ISC",
+  "author": "com2us platform",
+  "license": "com2us platform",
   "dependencies": {
     "dotenv": "^16.0.0",
     "tslib": "^2.3.1"
@@ -30,24 +31,42 @@
     "@terra-money/terra.js": "^3.0.4",
     "@types/app-root-path": "^1.2.4",
     "@types/chai": "^4.2.15",
+    "@types/chai-as-promised": "^7.1.5",
+    "@types/chai-string": "^1.4.2",
     "@types/mocha": "^8.2.1",
     "@types/node": "^14.14.31",
+    "@xpla/xpla.js": "^0.3.1",
     "chai": "^4.3.0",
+    "chai-as-promised": "^7.1.1",
+    "chai-string": "^1.5.0",
     "mocha": "^6.2.2",
     "pkg": "^4.4.0",
     "ts-node": "^10.7.0",
-    "typescript": "^4.6.2"
+    "typescript": "^4.6.2",
+    "web3": "^1.8.2"
   },
   "peerDependencies": {
     "@terra-money/terra.js": "^3.0.4",
-    "ts-node": "^10.7.0"
+    "@xpla/xpla.js": "^0.3.1",
+    "ts-node": "^10.7.0",
+    "web3": "^1.8.2"
   },
   "peerDependenciesMeta": {
+    "@xpla/xpla.js": {
+      "optional": true
+    },
     "@terra-money/terra.js": {
+      "optional": true
+    },
+    "web3": {
       "optional": true
     },
     "ts-node": {
       "optional": true
     }
-  }
+  },
+  "files": [
+    "lib",
+    "src"
+  ]
 }

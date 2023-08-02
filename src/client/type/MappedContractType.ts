@@ -1,5 +1,5 @@
-import {MsgExecuteContract} from "@terra-money/terra.js";
+import { MsgExecuteContract } from "@terra-money/terra.js";
 
-export class ContractMsg extends MsgExecuteContract{
+export class ContractMsg extends MsgExecuteContract {
 
 }
