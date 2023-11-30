@@ -1,5 +1,6 @@
 import { Account, AccountState, Block, CreateTxData, FeeConfig, Transaction } from "../type";
 import { Balance } from "../type/Balance";
+import { Signer } from "../signer/Signer";
 
 export interface Client {
   // /**
@@ -18,7 +19,11 @@ export interface Client {
 
   createTx(txOptions: CreateTxData, encoded?: boolean): Promise<any>
 
-  signTx(unsignedTx: any, mnemonicOrPrivateKey: string): Promise<string>
+  signTx(unsignedTx: any, signer: Signer): Promise<string>
+
+  signMsg(msg: string, signer: Signer): Promise<string>
+
+  getAddress(signer: Signer): Promise<string>
 
   // wait for its inclusion in a block
   sendSignedTx(transaction: any): Promise<any>
@@ -32,10 +37,16 @@ export interface Client {
 
   getProvider(): any
 
-  createAccount(privateKey?: string): Account
+  createAccount(mnemonicOrPrivateKey?: string): Account
 }
 
 export interface Client {
+  encodeTx(tx: any): string
+
+  decodeTx(encodedTx: string): any
+
+  isEOA(address: string): Promise<boolean>
+
   /**
    *
    * @deprecated Use instead of getAccountState
@@ -48,17 +59,6 @@ export interface Client {
    */
   getFee(tx: any, feePayer: any, signerList?: string[]): any
 
-  /**
-   *
-   * @deprecated
-   */
-  encodeTx(tx: any): string
-
-  /**
-   *
-   * @deprecated
-   */
-  decodeTx(encodedTx: string): any
 
   /**
    *

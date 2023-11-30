@@ -8,4 +8,5 @@ export interface Account {
   address: string;
   publicKey?: string;
   privateKey: string;
+  mnemonic?: string;
 }

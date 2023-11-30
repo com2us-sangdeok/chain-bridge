@@ -1,4 +1,4 @@
-import { Log, TransactionConfig } from "web3-core";
+import { Log, Transaction } from "web3"; // web3-types/eth_types
 
 export interface EthereumFeeConfig {
   gas: number;
@@ -24,6 +24,6 @@ export interface EthereumTxLog extends Log {
 export interface EthereumTxSignature {
 }
 
-export interface EthereumCreateTxData extends TransactionConfig {
+export interface EthereumCreateTxData extends Transaction {
   // chainId?: number | any;
 }

@@ -1,10 +1,10 @@
-import { BlockchainClient, BlockchainClientOptions } from "../../src";
+import { BlockchainClient, BlockchainClientOptions, RawKeySigner } from "../../src";
 import { use, expect } from "chai";
 import Web3 from "web3";
 import { TxStatus } from "../../src/type";
 import { EthereumCreateTxData, EthereumFeeConfig } from "../../src/client/ethereum/EthereumType";
-import { TransactionFactory } from "@ethereumjs/tx";
 import { Balance } from "../../src/type/Balance";
+import { TransactionFactory } from "web3-eth-accounts";
 
 use(require("chai-as-promised"));
 use(require('chai-string'));
@@ -88,7 +88,7 @@ describe('Ethereum Client', () => {
       let to = '0xd6AFc23C314454442f452Db7fb5364953a678ed6';
       let amount = '0x5AF3107A4000';
       createTxOptions = {
-        from: new Web3().eth.accounts.privateKeyToAccount(fromPrvKey).address,
+        from: ethereum.client.createAccount(fromPrvKey).address,
         to: to,
         value: amount
       }
@@ -99,7 +99,7 @@ describe('Ethereum Client', () => {
         const tx = await ethereum.client.createTx(createTxOptions);
         expect(tx.from).to.be.equal(createTxOptions.from);
         expect(tx.to).to.be.equal(createTxOptions.to);
-        expect(tx.value).to.be.equal(createTxOptions.value);
+        expect(Web3.utils.numberToHex(tx.value)).to.be.equalIgnoreCase(createTxOptions.value as string);
         // expect(tx.chainId).to.be.equal(chainId);
       });
 
@@ -108,7 +108,7 @@ describe('Ethereum Client', () => {
           ethereum.client.createTx(createTxOptions),
           ethereum.client.estimateFee(createTxOptions),
         ]);
-        expect(Web3.utils.toNumber(tx.gas)).to.be.equal((<EthereumFeeConfig>fee).gas);
+        expect(Web3.utils.toNumber(tx.gasLimit)).to.be.equal((<EthereumFeeConfig>fee).gas);
         expect(Web3.utils.toNumber(tx.maxFeePerGas)).to.be.equal((<EthereumFeeConfig>fee).maxFeePerGas);
         expect(Web3.utils.toNumber(tx.maxPriorityFeePerGas)).to.be.equal((<EthereumFeeConfig>fee).maxPriorityFeePerGas);
       });
@@ -116,9 +116,9 @@ describe('Ethereum Client', () => {
       it('Should ensure that the input values are the same as the result of decoding', async () => {
         const encodedTx = await ethereum.client.createTx(createTxOptions, true);
         const tx = TransactionFactory.fromSerializedData(Buffer.from(encodedTx, 'hex'))
-        expect(tx.nonce.toNumber()).to.be.equal(createTxOptions.nonce);
+        expect(Number(tx.nonce)).to.be.equal(createTxOptions.nonce);
         expect(tx.to?.toString()).to.equalIgnoreCase(createTxOptions.to!);
-        expect(`0x${tx.value.toString('hex')}`).to.equalIgnoreCase(createTxOptions.value as string);
+        expect(Web3.utils.numberToHex(tx.value)).to.equalIgnoreCase(createTxOptions.value as string);
       }).timeout(50000);
     });
 
@@ -126,10 +126,29 @@ describe('Ethereum Client', () => {
       this.timeout(5000);
       it('Should have the correct signature', async function () {
         const tx = await ethereum.client.createTx(createTxOptions);
-        const signedTx = await ethereum.client.signTx(tx, fromPrvKey);
+        const signedTx = await ethereum.client.signTx(tx, new RawKeySigner(Web3.utils.hexToBytes(fromPrvKey)));
+        const signedTx2 = await ethereum.client.signTx(tx, new RawKeySigner(fromPrvKey));
         console.log(signedTx);
+        console.log(signedTx2)
         // const result = await ethereum.client.sendSignedTxAsync(signedTx);
         // console.log(result)
+      });
+    });
+
+    describe('signMsg', function () {
+      this.timeout(5000);
+      it('sign message', async function () {
+        const web3 = new Web3();
+        const message = 'message';
+        for(let i = 0; i < 500; i++) {
+          const generatedPK = web3.eth.accounts.create().privateKey;
+          const signedMsg = await ethereum.client.signMsg(message, new RawKeySigner(Web3.utils.hexToBytes(generatedPK)));
+          const signedMsg2 = await ethereum.client.signMsg(message, new RawKeySigner(generatedPK));
+          const signedMsg3 = web3.eth.accounts.privateKeyToAccount(generatedPK).sign(message).signature;
+          console.log(signedMsg)
+          expect(signedMsg).to.be.equal(signedMsg2);
+          expect(signedMsg).to.be.equal(signedMsg3);
+        }
       });
     });
   });

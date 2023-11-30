@@ -10,6 +10,7 @@ import { Fee, LCDClient as LCDTerra, Msg } from "@terra-money/terra.js";
 import { Block } from "../../type/Block";
 import { CreateTxData } from "../../type/Transaction";
 import { AccountState } from "../../type";
+import { Signer } from "../../signer/Signer";
 
 export class TerraClient implements Client {
   // -------------------------------------------------------------------------
@@ -224,6 +225,18 @@ export class TerraClient implements Client {
   }
 
   sendSignedTxAsync(transaction: any): Promise<string> {
+    return Promise.resolve("");
+  }
+
+  isEOA(address: string): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  signMsg(msg: string, signer: Signer): Promise<string> {
+    return Promise.resolve("");
+  }
+
+  getAddress(signer: Signer): Promise<string> {
     return Promise.resolve("");
   }
 

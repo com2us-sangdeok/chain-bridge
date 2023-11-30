@@ -2,14 +2,26 @@ import { Client } from "../Client";
 import { BlockchainClient } from "../../blockchain-client";
 import { XplaConnectionOptions } from "./XplaConnectionOptions";
 import { ClientPackageNotInstalledError } from "../../error";
-import { Account } from "../type";
 import { ChainBridgeError } from "../../error";
 import { XplaCreateTxData, XplaFeeConfig, XplaTxFee } from "./XplaType";
-import { AccountState, Block, Transaction } from "../../type";
+import { Account, AccountState, Block, Transaction } from "../../type";
 import { Connection } from "../Connection";
-import { SignerOptions, Wallet, Fee, hashToHex, LCDClient, Msg, SignerData, SignOptions } from "@xpla/xpla.js";
+import {
+  SignerOptions,
+  Wallet,
+  Fee,
+  hashToHex,
+  LCDClient,
+  Msg,
+  SignerData,
+  SignOptions
+} from "@xpla/xpla.js";
 import { Tx } from "@xpla/xpla.js/dist/core";
 import { Balance } from "../../type/Balance";
+import * as bip39 from "bip39";
+import { Signer } from "../../signer";
+import { XplaSignerKey } from "./XplaSingerKey";
+import { keccak256 } from "@ethersproject/keccak256";
 
 export class XplaClient extends Connection implements Client {
   // -------------------------------------------------------------------------
@@ -175,8 +187,7 @@ export class XplaClient extends Connection implements Client {
     return result.txhash;
   }
 
-  // fixme: add isClassic value into signTx fn
-  async signTx(unsignedTx: any, mnemonic: string): Promise<string> {
+  async signTx(unsignedTx: any, signer: Signer): Promise<string> {
     let decodedTx: Tx;
     if(typeof unsignedTx ==='object') {
       decodedTx = unsignedTx;
@@ -185,7 +196,8 @@ export class XplaClient extends Connection implements Client {
     }
     const emptySignIndex = decodedTx.auth_info.signer_infos.findIndex(value => value.sequence != null);
 
-    const wallet = new this.library.MnemonicKey({ mnemonic: mnemonic });
+    const publicKey = await signer.getPublicKey(true);
+    const wallet = new XplaSignerKey(signer, publicKey);
     const accountState = await this.getAccountState(wallet.accAddress);
 
     if (emptySignIndex != -1) {
@@ -203,6 +215,72 @@ export class XplaClient extends Connection implements Client {
     const signedTx = await wallet.signTx(decodedTx, signOptions);
     return this.provider.tx.encode(signedTx);
   }
+
+  async signMsg(msg: string, signer: Signer): Promise<string> {
+    const msgBuffer = /^((-)?0x[0-9a-f]+|(0x))$/i.test(msg) ? Buffer.from(msg) : new TextEncoder().encode(msg);
+    const msgToSign = Buffer.from(keccak256(msgBuffer).substring(2), 'hex');
+    const signature = await signer.sign(msgToSign);
+    return Buffer.from(signature).toString('base64');
+  }
+
+  async getAddress(signer: Signer): Promise<string> {
+    const publicKey = await signer.getPublicKey();
+    const wallet = new XplaSignerKey(signer, publicKey);
+    return wallet.accAddress;
+  }
+
+  // async signTx(unsignedTx: any, signer: Signer): Promise<string> {
+  //   let tx: Tx;
+  //   if(typeof unsignedTx ==='object') {
+  //     tx = unsignedTx;
+  //   } else {
+  //     tx = this.provider.tx.decode(unsignedTx);
+  //   }
+  //
+  //   const publicKey = new SimplePublicKey(Buffer.from(await signer.getPublicKey(true)).toString('base64'));
+  //   const accountState = await this.getAccountState(publicKey.address());
+  //
+  //   const emptySignIndex = tx.auth_info.signer_infos.findIndex(value => value.sequence != null);
+  //   if (emptySignIndex != -1) {
+  //     accountState.nonce = tx.auth_info.signer_infos[emptySignIndex].sequence;
+  //     tx.auth_info.signer_infos.splice(emptySignIndex, 1);
+  //   }
+  //
+  //   const copyTx = new Tx(tx.body, new AuthInfo([], tx.auth_info.fee), []);
+  //   const signDoc = new SignDoc(
+  //     this.options.chainID!,
+  //     accountState.accountNumber!,
+  //     accountState.nonce,
+  //     new AuthInfo([], tx.auth_info.fee),
+  //     tx.body
+  //   );
+  //
+  //   const msgToSign = Buffer.from(keccak256(Buffer.from(signDoc.toAminoJSON(false))).substring(2), 'hex');
+  //   const signature = await signer.sign(msgToSign);
+  //   const sigatureV2 = new SignatureV2(
+  //     publicKey,
+  //     new SignatureV2.Descriptor(
+  //       new SignatureV2.Descriptor.Single(
+  //         SignMode.SIGN_MODE_LEGACY_AMINO_JSON,
+  //         Buffer.from(signature).toString('base64')
+  //       )
+  //     ),
+  //     accountState.nonce
+  //   );
+  //
+  //   const sigData = sigatureV2.data.single as SignatureV2.Descriptor.Single;
+  //   copyTx.signatures.push(...tx.signatures, sigData.signature);
+  //   copyTx.auth_info.signer_infos.push(
+  //     ...tx.auth_info.signer_infos,
+  //     new SignerInfo(
+  //       sigatureV2.public_key,
+  //       sigatureV2.sequence,
+  //       new ModeInfo(new ModeInfo.Single(sigData.mode))
+  //     )
+  //   );
+  //
+  //   return this.provider.tx.encode(copyTx);
+  // }
 
   async estimateFee(txOptions: XplaCreateTxData): Promise<XplaFeeConfig> {
     const { signers, ...createTxOptions } = txOptions;
@@ -230,16 +308,51 @@ export class XplaClient extends Connection implements Client {
     return this.provider.wasm.contractQuery(contract, query);
   }
 
-  public createAccount(mnemonic?: string): Account {
-    const mk = new this.library.MnemonicKey({
-      mnemonic: mnemonic,
-    })
+  public createAccount(mnemonicOrPrivateKey?: string): Account {
+    let mnemonic;
+
+    if (mnemonicOrPrivateKey == null) {
+      mnemonicOrPrivateKey = bip39.generateMnemonic(256); // default strength 128 (metamask)
+    }
+
+    let key;
+    if(bip39.validateMnemonic(mnemonicOrPrivateKey)) {
+      mnemonic = mnemonicOrPrivateKey;
+      key = new this.library.MnemonicKey({
+        mnemonic: mnemonic,
+      });
+    } else {
+      key = new this.library.RawKey(Buffer.from(mnemonicOrPrivateKey, "base64"));
+    }
 
     return {
-      address: mk.accAddress,
-      publicKey: mk.publicKey.key,
-      privateKey: mk.mnemonic,
+      address: key.accAddress,
+      publicKey: key.publicKey.key,
+      privateKey: key.privateKey.toString("base64"),
+      ...(mnemonic != null && { mnemonic: mnemonic }),
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Utility Methods
+  // -------------------------------------------------------------------------
+
+  decodeTx(encodedTx: string): any {
+    if(typeof encodedTx === 'object') {
+      return encodedTx;
+    }
+
+    return this.provider.tx.decode(encodedTx);
+  }
+
+  encodeTx(tx: any): string {
+    if(typeof tx === 'string') {
+      return tx;
+    }
+    return this.provider.tx.encode(tx);
+  }
+  async isEOA(address: string): Promise<boolean> {
+    return /([a-z0-9]{1,20}1[a-z0-9]{38}$)/.test(address);
   }
 
   // -------------------------------------------------------------------------
@@ -274,15 +387,6 @@ export class XplaClient extends Connection implements Client {
     )
 
     return new Fee(estimateFee.gas_limit, estimateFee.amount.toString(), feePayer)
-  }
-
-  decodeTx(encodedTx: string): any {
-    // return this.lcd.tx.decodeTx(encodedTx)
-  }
-
-  encodeTx(tx: any): string {
-    // return this.lcd.tx.encodeTx(tx)
-    return "";
   }
 
   // only for xpla

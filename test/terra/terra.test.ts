@@ -177,7 +177,7 @@
 //
 //             signedWallet = terra.client.wallet(test1)
 //             expect(signedWallet).not.to.be.null
-//             console.log('signed Wallet', signedWallet)
+//             console.log('signed Signer', signedWallet)
 //         })
 //
 //         it('sign Tx', async () => {

@@ -5,9 +5,19 @@ import { EthereumCreateTxData, EthereumFeeConfig, EthereumTxData, EthereumTxFee,
 import { Connection } from "../Connection";
 import { ChainBridgeError, ClientPackageNotInstalledError } from "../../error";
 import { EthereumConnectionOptions } from "./EthereumConnectionOptions";
-import Web3 from "web3";
-import { TransactionFactory } from "@ethereumjs/tx";
+import Web3, {
+  FMT_BYTES,
+  FMT_NUMBER,
+  Transaction1559SignedAPI,
+  TransactionLegacySignedAPI
+} from "web3";
 import { Balance } from "../../type/Balance";
+import { TransactionFactory, TxData, TypedTransaction, ecrecover, Common, hashMessage } from "web3-eth-accounts";
+import { sha3Raw } from "web3-utils";
+import { isHexPrefixed } from "web3-validator";
+import * as bip39 from "bip39";
+import * as bip32 from "bip32";
+import { Signer } from "../../signer";
 
 export class EthereumClient extends Connection implements Client {
   // -------------------------------------------------------------------------
@@ -28,7 +38,8 @@ export class EthereumClient extends Connection implements Client {
   protected override loadDependencies(): void {
     try {
       super.loadDependencies();
-      this.provider = new this.library(this.options.nodeURL);
+      const { Web3 } = this.library;
+      this.provider = new Web3(this.options.nodeURL);
     } catch (e) {
       if (e instanceof ClientPackageNotInstalledError) {
         throw new ClientPackageNotInstalledError(
@@ -36,6 +47,7 @@ export class EthereumClient extends Connection implements Client {
           "web3",
         )
       } else {
+        console.log(e)
         // TODO TBD error type
         throw new ChainBridgeError("Provider Error");
       }
@@ -58,38 +70,40 @@ export class EthereumClient extends Connection implements Client {
   }
 
   async getAccountState(address: string): Promise<AccountState> {
-    const nonce = await this.provider.eth.getTransactionCount(address);
+    const nonce = await this.provider.eth.getTransactionCount(address, undefined, { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX });
     return {
       nonce: nonce
     };
   }
 
   async getBlock(blockNumber?: number): Promise<Block> {
-    const block = await this.provider.eth.getBlock(blockNumber ?? "latest");
+    const block = await this.provider.eth.getBlock(blockNumber ?? "latest", false, { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX });
     return {
       number: block.number,
-      hash: block.hash,
+      hash: block.hash as string,
       miner: block.miner,
       timestamp: block.timestamp,
-      txs: block.transactions
+      txs: block.transactions as string[]
     };
   }
 
   async getTx(txhash: string): Promise<Transaction> {
     const [tx, receipt] = await Promise.all([
-      this.provider.eth.getTransaction(txhash),
-      this.provider.eth.getTransactionReceipt(txhash)
+      this.provider.eth.getTransaction(txhash, { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX }),
+      this.provider.eth.getTransactionReceipt(txhash, { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX })
     ]);
+
+    const txType = Web3.utils.toNumber(tx.type);
 
     return {
       txhash: tx.hash,
-      blockNumber: tx.blockNumber!,
+      blockNumber: Number(tx.blockNumber),
       status: receipt.status ? "success" : "fail",
       fee: {
-        gas: tx.gas,
-        gasPrice: Number(tx.gasPrice),
-        maxFeePerGas: tx.maxFeePerGas,
-        maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+        gas: Number(tx.gas),
+        gasPrice: txType === 0 ? Number((tx as TransactionLegacySignedAPI).gasPrice) : null,
+        maxFeePerGas: txType !== 0 ? Number((tx as Transaction1559SignedAPI).maxFeePerGas) : null,
+        maxPriorityFeePerGas: txType !== 0 ? Number((tx as Transaction1559SignedAPI).maxPriorityFeePerGas) : null,
         gasUsed: receipt.gasUsed
       } as EthereumTxFee,
       data: {
@@ -104,24 +118,24 @@ export class EthereumClient extends Connection implements Client {
 
   async createTx(txOptions: EthereumCreateTxData, encoded: boolean = false): Promise<any> {
     if (txOptions.nonce == null && txOptions.from != null) {
-      txOptions.nonce = await this.provider.eth.getTransactionCount(<string>txOptions.from);
+      txOptions.nonce = await this.getAccountState(<string>txOptions.from).then(account => account.nonce);
     }
 
-    txOptions.chainId = Number(this.options.chainID)
+    txOptions.chainId = Number(this.options.chainID);
 
     const estimatedFee = await this.estimateFee(txOptions);
-    txOptions.gas = txOptions.gas ?? estimatedFee.gas; // gas limit
+    // txOptions.gas = txOptions.gas ?? estimatedFee.gas; // gas limit
+    txOptions.gasLimit = txOptions.gas ?? estimatedFee.gas
 
-    const typedOptions = { type: 0, gasLimit: txOptions.gas };
-    if(txOptions.gasPrice == null) {
+    if (txOptions.gasPrice == null) {
       // EIP1559 Transaction
       txOptions.maxFeePerGas = txOptions.maxFeePerGas ?? estimatedFee.maxFeePerGas;
       txOptions.maxPriorityFeePerGas = txOptions.maxPriorityFeePerGas ?? estimatedFee.maxPriorityFeePerGas;
-      typedOptions.type = 2;
+      txOptions.type = 2;
     }
 
-    if(encoded) {
-      return TransactionFactory.fromTxData({...txOptions, ...typedOptions}).serialize().toString('hex');
+    if (encoded) {
+      return Buffer.from(TransactionFactory.fromTxData(txOptions as TxData | TypedTransaction, { common: Common.custom({chainId: txOptions.chainId, networkId: txOptions.chainId })}).serialize()).toString('hex');
     } else {
       return txOptions;
     }
@@ -137,38 +151,94 @@ export class EthereumClient extends Connection implements Client {
         .on("transactionHash", (hash) => {
           resolve(hash);
         }).catch(e => {
-          reject(e)
-        });
+        reject(e)
+      });
     });
   }
 
-  async signTx(unsignedTx: any, privateKey: string): Promise<string> {
-    if(typeof unsignedTx === 'object') {
-      const signedTx = await this.provider.eth.accounts.signTransaction(unsignedTx, privateKey);
-      return signedTx.rawTransaction!;
+  private _calculateSignature(msgHash: Uint8Array, expectedPublicKeyHash: string, signature: Uint8Array, recId = 27n): { r: Uint8Array, s: Uint8Array, v: bigint } {
+    const r = signature.subarray(0, 32);
+    const s = signature.subarray(32, 64);
+    let v = recId;
+    let recover = ecrecover(msgHash, v, r, s);
+    let publicHash = sha3Raw(recover)
+
+    if (expectedPublicKeyHash.toUpperCase() === publicHash.toUpperCase()) {
+      return {
+        r: r,
+        s: s,
+        v: v,
+      }
+    } else {
+      if (v > 28n) throw new Error('Not found valid recover id');
+      return this._calculateSignature(msgHash, expectedPublicKeyHash, signature, v + 1n);
     }
-    else {
-      const decodedTx = TransactionFactory.fromSerializedData(Buffer.from(unsignedTx, 'hex'));
-      return `0x${decodedTx.sign(Buffer.from(privateKey, 'hex')).serialize().toString('hex')}`;
+  }
+
+  private _processSignature(unsignedTx: TypedTransaction, r: Uint8Array, s: Uint8Array, v: bigint): string {
+    const jsonTx: any = unsignedTx.toJSON();
+    jsonTx.r = this.provider.utils.bytesToHex(r);
+    jsonTx.s = this.provider.utils.bytesToHex(s);
+    jsonTx.v = unsignedTx.type > 0 ? (v - 27n) : v + 8n + unsignedTx.common.chainId() * 2n;
+    jsonTx.type = unsignedTx.type;
+    return `0x${Buffer.from(TransactionFactory.fromTxData(jsonTx).serialize()).toString('hex')}`;
+  }
+
+  protected async sign(digest: Uint8Array, signer: Signer): Promise<{r: Uint8Array, s: Uint8Array, v: bigint}> {
+    const msgToSign = digest;
+    const signature = await signer.sign(msgToSign);
+    const publicKeyHash = sha3Raw((await signer.getPublicKey()).slice(1));
+    return this._calculateSignature(msgToSign, publicKeyHash, signature);
+  }
+
+  async signTx(unsignedTx: any, signer: Signer): Promise<string> {
+    let tx: TypedTransaction;
+    if (typeof unsignedTx === 'object') {
+      tx = TransactionFactory.fromTxData(unsignedTx);
+    } else {
+      tx = TransactionFactory.fromSerializedData(Buffer.from(unsignedTx, 'hex'));
     }
+
+    const digest = tx.getMessageToSign();
+    const { r, s, v } = await this.sign(digest, signer);
+
+    return this._processSignature(tx, r, s, v);
+  }
+
+  async signMsg(msg: string, signer: Signer): Promise<string> {
+    // The data will be UTF-8 HEX decoded and enveloped as follows
+    //  : "\\x19Ethereum Signed Message:\\n" + message.length + message and hashed using keccak256.
+    const digest = this.provider.utils.hexToBytes(hashMessage(msg));
+    const { r, s, v } = await this.sign(digest, signer);
+
+    const sigR = this.provider.utils.bytesToHex(r);
+    const sigS = this.provider.utils.bytesToHex(s);
+    const sigV = v.toString(16);
+
+    return sigR + sigS.substring(2) + sigV;
+  }
+
+  async getAddress(signer: Signer): Promise<string> {
+    const publicKey = await signer.getPublicKey();
+    return `0x${this.provider.utils.keccak256(
+      publicKey.slice(1, publicKey.length)
+    ).slice(-40)}`;
   }
 
   async estimateFee(txOptions: EthereumCreateTxData): Promise<EthereumFeeConfig> {
     const [gas, gasPrice, feeHistory] = await Promise.all([
-      this.provider.eth.estimateGas({
-        ...txOptions,
-        chainId: undefined
-        // chainId: !txOptions.chainId?.startsWith('0x') ? this.provider.utils.toHex(txOptions.chainId) as any : txOptions.chainId
-      }),
-      this.provider.eth.getGasPrice(),
-      this.provider.eth.getFeeHistory(4, 'latest', [25])
+      this.provider.eth.estimateGas(txOptions, undefined, { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX }),
+      this.provider.eth.getGasPrice({ number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX }),
+      this.provider.eth.getFeeHistory(4, 'latest', [25], { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX })
     ]);
-    const baseFeePerGas = Web3.utils.toNumber(feeHistory.baseFeePerGas[feeHistory.baseFeePerGas.length - 1]);
-    const rewards = feeHistory.reward.map((value: string[]) => Web3.utils.toNumber(value[0])).filter((value: number) => value != 0);
+    const baseFeePerGasArr = feeHistory.baseFeePerGas as any;
+    const baseFeePerGas = Web3.utils.toNumber((baseFeePerGasArr as number[])[baseFeePerGasArr.length - 1]) as number;
+    const rewards = feeHistory.reward.map((value: number[]) => Web3.utils.toNumber(value[0]) as number).filter((value: number) => value != 0);
     const priorityFeePerGas = Math.round(rewards.reduce((a: number, b: number) => a + b, 0) / rewards.length);
+
     return {
       gas: Math.ceil(gas * 1.5),
-      gasPrice: Math.ceil(Number(gasPrice) * 1.5),
+      gasPrice: Math.ceil(gasPrice * 1.5),
       maxFeePerGas: Math.ceil(baseFeePerGas * 1.5) + priorityFeePerGas,
       maxPriorityFeePerGas: priorityFeePerGas,
     };
@@ -181,18 +251,64 @@ export class EthereumClient extends Connection implements Client {
     });
   }
 
-  public createAccount(privateKey?: string): Account {
-    let account;
-    if (privateKey == null) {
-      account = this.provider.eth.accounts.create();
-    } else {
-      account = this.provider.eth.accounts.privateKeyToAccount(privateKey);
+  public createAccount(mnemonicOrPrivateKey?: string): Account {
+    let mnemonic;
+    let privateKey;
+
+    if (mnemonicOrPrivateKey == null) {
+      // account = this.provider.eth.accounts.create();
+      mnemonicOrPrivateKey = bip39.generateMnemonic(); // default strength 128 (metamask)
     }
+
+    if (bip39.validateMnemonic(mnemonicOrPrivateKey)) {
+      // Mnemonic
+      const seed = bip39.mnemonicToSeedSync(mnemonicOrPrivateKey);
+      const node = bip32.fromSeed(seed);
+      const wallet = node.derivePath("m/44'/60'/0'/0/0");
+      mnemonic = mnemonicOrPrivateKey;
+      privateKey = this.provider.utils.bytesToHex(Uint8Array.from(wallet.privateKey!))
+    } else {
+      // Private key
+      privateKey = mnemonicOrPrivateKey;
+    }
+    const account = this.provider.eth.accounts.privateKeyToAccount(isHexPrefixed(privateKey) ? privateKey : `0x${privateKey}`);
 
     return {
       address: account.address,
-      privateKey: account.privateKey
+      privateKey: account.privateKey,
+      ...(mnemonic != null && { mnemonic: mnemonic }),
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Utility Methods
+  // -------------------------------------------------------------------------
+
+  decodeTx(encodedTx: string): any {
+    if (typeof encodedTx === 'object') {
+      return encodedTx;
+    }
+    return TransactionFactory.fromSerializedData(Buffer.from(encodedTx, 'hex'));
+  }
+
+  encodeTx(tx: any): string {
+    if (typeof tx === 'string') {
+      return tx;
+    }
+    return Buffer.from(TransactionFactory.fromTxData(tx as TxData | TypedTransaction).serialize()).toString('hex');
+    ;
+  }
+
+  async isEOA(address: string): Promise<boolean> {
+    let result = false;
+    try {
+      const code = await this.provider.eth.getCode(address);
+      if (code === '0x') {
+        result = true;
+      }
+    } finally {
+      return result;
+    }
   }
 
   generateKey(): string {
@@ -212,14 +328,6 @@ export class EthereumClient extends Connection implements Client {
 
   async getFee(tx: any, feePayer: any): Promise<any> {
     return Promise.resolve(0);
-  }
-
-  decodeTx(encodedTx: string): any {
-    return Promise.resolve(0);
-  }
-
-  encodeTx(tx: any): string {
-    return "";
   }
 
   // only for terra
