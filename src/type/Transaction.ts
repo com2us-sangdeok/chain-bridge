@@ -5,11 +5,12 @@ import {
   EthereumTxFee,
   EthereumTxLog,
   EthereumTxSignature
-} from "../client/ethereum/EthereumType";
+} from "../client/ethereum";
 
 const txStatus = {
+  pending: "pending",
   success: "success",
-  fail: "fail"
+  failure: "failure"
 } as const;
 export type TxStatus = typeof txStatus[keyof typeof txStatus];
 
@@ -29,3 +30,9 @@ export interface Transaction {
 }
 
 export type CreateTxData = XplaCreateTxData | EthereumCreateTxData;
+
+export interface TransactionResult {
+  txhash: string;
+  status: TxStatus;
+  rawLog?: string;
+}

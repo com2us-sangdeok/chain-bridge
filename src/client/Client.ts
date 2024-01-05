@@ -1,4 +1,4 @@
-import { Account, AccountState, Block, CreateTxData, FeeConfig, Transaction } from "../type";
+import { Account, AccountState, Block, CreateTxData, FeeConfig, Transaction, TransactionResult } from "../type";
 import { Balance } from "../type/Balance";
 import { Signer } from "../signer/Signer";
 
@@ -26,10 +26,10 @@ export interface Client {
   getAddress(signer: Signer): Promise<string>
 
   // wait for its inclusion in a block
-  sendSignedTx(transaction: any): Promise<any>
+  sendSignedTx(transaction: string): Promise<TransactionResult>
 
   // returns immediately (transaction might fail)
-  sendSignedTxAsync(transaction: any): Promise<string>
+  sendSignedTxAsync(transaction: string): Promise<TransactionResult>
 
   estimateFee(txOptions: CreateTxData): Promise<FeeConfig>
 

@@ -1,6 +1,6 @@
 import { Client } from "../Client";
 import { BlockchainClient } from "../../blockchain-client";
-import { Account, AccountState, Block, Transaction } from "../../type";
+import { Account, AccountState, Block, Transaction, TransactionResult } from "../../type";
 import { EthereumCreateTxData, EthereumFeeConfig, EthereumTxData, EthereumTxFee, EthereumTxLog } from "./EthereumType";
 import { Connection } from "../Connection";
 import { ChainBridgeError, ClientPackageNotInstalledError } from "../../error";
@@ -18,6 +18,7 @@ import { isHexPrefixed } from "web3-validator";
 import * as bip39 from "bip39";
 import * as bip32 from "bip32";
 import { Signer } from "../../signer";
+import { TransactionError } from "../../error/TransactionError";
 
 export class EthereumClient extends Connection implements Client {
   // -------------------------------------------------------------------------
@@ -98,7 +99,7 @@ export class EthereumClient extends Connection implements Client {
     return {
       txhash: tx.hash,
       blockNumber: Number(tx.blockNumber),
-      status: receipt.status ? "success" : "fail",
+      status: receipt.status ? "success" : "failure",
       fee: {
         gas: Number(tx.gas),
         gasPrice: txType === 0 ? Number((tx as TransactionLegacySignedAPI).gasPrice) : null,
@@ -141,15 +142,42 @@ export class EthereumClient extends Connection implements Client {
     }
   }
 
-  async sendSignedTx(signedTx: string): Promise<any> {
-    return this.provider.eth.sendSignedTransaction(signedTx)
+  private checkBeforeSendTx(signedTx: string) {
+    let isSigned = true;
+    try {
+      const decodeTx = this.decodeTx(signedTx);
+      isSigned = decodeTx.isSigned();
+    } catch (e) {
+      throw new TransactionError(TransactionError.ErrTxDecode)
+    }
+
+    if(!isSigned) {
+      throw new TransactionError(TransactionError.ErrNoSignatures)
+    }
   }
 
-  async sendSignedTxAsync(signedTx: string): Promise<string> {
+  async sendSignedTx(signedTx: string): Promise<TransactionResult> {
+    this.checkBeforeSendTx(signedTx);
+
+    try {
+      const result = await this.provider.eth.sendSignedTransaction(signedTx, { number: FMT_NUMBER.NUMBER, bytes: FMT_BYTES.HEX }, {checkRevertBeforeSending: false});
+      return {
+        txhash: result.transactionHash.toString(),
+        status: result.status ? "success" : "failure",
+        ...(!result.status && { rawLog: TransactionError.ErrFailedTx }),
+      }
+    } catch (e) {
+      throw new TransactionError(e);
+    }
+  }
+
+  async sendSignedTxAsync(signedTx: string): Promise<TransactionResult> {
+    this.checkBeforeSendTx(signedTx);
+
     return new Promise((resolve, reject) => {
       this.provider.eth.sendSignedTransaction(signedTx)
         .on("transactionHash", (hash) => {
-          resolve(hash);
+          resolve({ txhash: hash, status: "pending" });
         }).catch(e => {
         reject(e)
       });
@@ -288,7 +316,9 @@ export class EthereumClient extends Connection implements Client {
     if (typeof encodedTx === 'object') {
       return encodedTx;
     }
-    return TransactionFactory.fromSerializedData(Buffer.from(encodedTx, 'hex'));
+    return TransactionFactory.fromSerializedData(
+      Buffer.from(isHexPrefixed(encodedTx) ? encodedTx.slice(2) : encodedTx , 'hex')
+    );
   }
 
   encodeTx(tx: any): string {

@@ -4,7 +4,7 @@ import { XplaConnectionOptions } from "./XplaConnectionOptions";
 import { ClientPackageNotInstalledError } from "../../error";
 import { ChainBridgeError } from "../../error";
 import { XplaCreateTxData, XplaFeeConfig, XplaTxFee } from "./XplaType";
-import { Account, AccountState, Block, Transaction } from "../../type";
+import { Account, AccountState, Block, Transaction, TransactionResult } from "../../type";
 import { Connection } from "../Connection";
 import {
   SignerOptions,
@@ -14,14 +14,15 @@ import {
   LCDClient,
   Msg,
   SignerData,
-  SignOptions
+  SignOptions, SignDoc, SimplePublicKey
 } from "@xpla/xpla.js";
 import { Tx } from "@xpla/xpla.js/dist/core";
 import { Balance } from "../../type/Balance";
 import * as bip39 from "bip39";
 import { Signer } from "../../signer";
 import { XplaSignerKey } from "./XplaSingerKey";
-import { keccak256 } from "@ethersproject/keccak256";
+import { TransactionError } from "../../error/TransactionError";
+import { XplaErrorCode } from "./XplaErrorCode";
 
 export class XplaClient extends Connection implements Client {
   // -------------------------------------------------------------------------
@@ -144,7 +145,7 @@ export class XplaClient extends Connection implements Client {
     return {
       txhash: txInfo.txhash,
       blockNumber: txInfo.height,
-      status: txInfo.code == 0 ? "success" : "fail",
+      status: txInfo.code == 0 ? "success" : "failure",
       fee: {
         gasUsed: txInfo.gas_used,
         gasWanted: txInfo.gas_wanted,
@@ -178,13 +179,47 @@ export class XplaClient extends Connection implements Client {
     }
   }
 
-  async sendSignedTx(signedTx: string): Promise<any> {
-    return this.provider.tx.broadcast(this.provider.tx.decode(signedTx));
+  private checkBeforeSendTx(signedTx: string) {
+    let isSigned = true;
+    try {
+      const decodeTx = this.decodeTx(signedTx);
+      if(!decodeTx.signatures || decodeTx.signatures.length == 0) {
+        isSigned = false;
+      }
+    } catch (e) {
+      throw new TransactionError(TransactionError.ErrTxDecode)
+    }
+
+    if(!isSigned) {
+      throw new TransactionError(TransactionError.ErrNoSignatures)
+    }
   }
 
-  async sendSignedTxAsync(signedTx: string): Promise<string> {
+  async sendSignedTx(signedTx: string): Promise<TransactionResult> {
+    this.checkBeforeSendTx(signedTx);
+
+    const result: any = await this.provider.tx.broadcast(this.provider.tx.decode(signedTx));
+
+    if (result.code > 0 && result.height == 0) {
+      // 실패, 블록 마이닝 X
+      throw new TransactionError(!!result.raw_log ? result.raw_log : XplaErrorCode[result.code]);
+    }
+
+    return {
+      txhash: result.txhash,
+      status: result.code == 0 ? "success" : "failure",
+      ...(result.code != 0 && { rawLog: !!result.raw_log ? result.raw_log : XplaErrorCode[result.code] }),
+    };
+  }
+
+  async sendSignedTxAsync(signedTx: string): Promise<TransactionResult> {
+    this.checkBeforeSendTx(signedTx);
+
     const result = await this.provider.tx.broadcastAsync(this.provider.tx.decode(signedTx));
-    return result.txhash;
+    return {
+      txhash: result.txhash,
+      status: "pending",
+    };
   }
 
   async signTx(unsignedTx: any, signer: Signer): Promise<string> {
@@ -205,6 +240,33 @@ export class XplaClient extends Connection implements Client {
       decodedTx.auth_info.signer_infos.splice(emptySignIndex, 1);
     }
 
+    // For Multisig
+    const senders = decodedTx.body.messages
+      .filter((msg: any) => msg.from_address || msg.sender)
+      .map((msg: any) => msg.from_address ?? msg.sender);
+    if(senders && senders.length > 0) {
+      const senderSet = new Set(senders);
+      if(!senderSet.has(wallet.accAddress)) {
+        for(let sender of senderSet) {
+          const accountInfo = await this.provider.auth.accountInfo(sender);
+          const pubKey = accountInfo.getPublicKey();
+          if(!(pubKey instanceof SimplePublicKey)) {
+            // Multisig or null
+            const signInfo = await wallet.createSignatureAmino(new SignDoc(
+              this.options.chainID!,
+              accountInfo.getAccountNumber(),
+              accountInfo.getSequenceNumber(),
+              decodedTx.auth_info,
+              decodedTx.body,
+            ));
+            const signature = JSON.stringify(signInfo.toData());
+            console.log(signature)
+            return Buffer.from(signature).toString('base64');
+          }
+        }
+      }
+    }
+
     const signOptions: SignOptions = {
       chainID: this.options.chainID!,
       accountNumber: accountState.accountNumber!,
@@ -217,9 +279,10 @@ export class XplaClient extends Connection implements Client {
   }
 
   async signMsg(msg: string, signer: Signer): Promise<string> {
-    const msgBuffer = /^((-)?0x[0-9a-f]+|(0x))$/i.test(msg) ? Buffer.from(msg) : new TextEncoder().encode(msg);
-    const msgToSign = Buffer.from(keccak256(msgBuffer).substring(2), 'hex');
-    const signature = await signer.sign(msgToSign);
+    // const msgBuffer = /^((-)?0x[0-9a-f]+|(0x))$/i.test(msg) ? Buffer.from(msg) : new TextEncoder().encode(msg);
+    const publicKey = await signer.getPublicKey(true);
+    const wallet = new XplaSignerKey(signer, publicKey);
+    const signature = await wallet.sign(Buffer.from(msg))
     return Buffer.from(signature).toString('base64');
   }
 

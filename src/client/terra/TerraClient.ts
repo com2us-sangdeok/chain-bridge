@@ -224,7 +224,7 @@ export class TerraClient implements Client {
     return "";
   }
 
-  sendSignedTxAsync(transaction: any): Promise<string> {
+  sendSignedTxAsync(transaction: any): Promise<any> {
     return Promise.resolve("");
   }
 
