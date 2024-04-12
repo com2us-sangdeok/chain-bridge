@@ -14,10 +14,12 @@ describe('Ethereum Client', () => {
   let chainId: string;
 
   before(() => {
-    chainId = '80001';
+    // chainId = '80001';
+    chainId = '80002';
     ethereum = new BlockchainClient({
       type: 'polygon',
-      nodeURL: 'https://polygon-mumbai.g.alchemy.com/v2/UeqxXMMGZhtKVGyLavNMAULrz2Y4YLE6',
+      // nodeURL: 'https://polygon-mumbai.g.alchemy.com/v2/UeqxXMMGZhtKVGyLavNMAULrz2Y4YLE6',
+      nodeURL: 'https://polygon-amoy.g.alchemy.com/v2/d3zMD1_zHWF8OiCuM962LHU8om-EF69M',
       chainID: chainId
     } as BlockchainClientOptions);
   })

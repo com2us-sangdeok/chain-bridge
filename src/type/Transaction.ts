@@ -27,6 +27,7 @@ export interface Transaction {
   data: TxData;
   logs: TxLogs[];
   signature?: TxSignature;
+  contractAddress?: string;
 }
 
 export type CreateTxData = XplaCreateTxData | EthereumCreateTxData;

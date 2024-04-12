@@ -96,15 +96,26 @@ export class EthereumClient extends Connection implements Client {
 
     const txType = Web3.utils.toNumber(tx.type);
 
+    let contractAddress = receipt.contractAddress;
+    if (!contractAddress) {
+      // ContractCreation(address) event signature
+      const contractCreateLog = receipt.logs
+        ?.find((log) => log.topics && log.topics.length == 2 &&
+          Web3.utils.bytesToHex(log.topics[0]) === '0x4db17dd5e4732fb6da34a148104a592783ca119a1e7bb8829eba6cbadef0b511');
+      if (contractCreateLog && contractCreateLog.topics) {
+        contractAddress = Web3.utils.bytesToHex(`0x${contractCreateLog.topics[1].slice(-40)}`);
+      }
+    }
+
     return {
       txhash: tx.hash,
       blockNumber: Number(tx.blockNumber),
       status: receipt.status ? "success" : "failure",
       fee: {
         gas: Number(tx.gas),
-        gasPrice: txType === 0 ? Number((tx as TransactionLegacySignedAPI).gasPrice) : null,
-        maxFeePerGas: txType !== 0 ? Number((tx as Transaction1559SignedAPI).maxFeePerGas) : null,
-        maxPriorityFeePerGas: txType !== 0 ? Number((tx as Transaction1559SignedAPI).maxPriorityFeePerGas) : null,
+        gasPrice: txType === 0 ? Number((tx as unknown as TransactionLegacySignedAPI).gasPrice) : null,
+        maxFeePerGas: txType !== 0 ? Number((tx as unknown as Transaction1559SignedAPI).maxFeePerGas) : null,
+        maxPriorityFeePerGas: txType !== 0 ? Number((tx as unknown as Transaction1559SignedAPI).maxPriorityFeePerGas) : null,
         gasUsed: receipt.gasUsed
       } as EthereumTxFee,
       data: {
@@ -113,7 +124,8 @@ export class EthereumClient extends Connection implements Client {
         value: tx.value,
         input: tx.input
       } as EthereumTxData,
-      logs: <EthereumTxLog[]>receipt.logs
+      logs: <EthereumTxLog[]>receipt.logs,
+      ...(contractAddress && { contractAddress: contractAddress })
     };
   }
 
@@ -262,7 +274,10 @@ export class EthereumClient extends Connection implements Client {
     const baseFeePerGasArr = feeHistory.baseFeePerGas as any;
     const baseFeePerGas = Web3.utils.toNumber((baseFeePerGasArr as number[])[baseFeePerGasArr.length - 1]) as number;
     const rewards = feeHistory.reward.map((value: number[]) => Web3.utils.toNumber(value[0]) as number).filter((value: number) => value != 0);
-    const priorityFeePerGas = Math.round(rewards.reduce((a: number, b: number) => a + b, 0) / rewards.length);
+    let priorityFeePerGas = Math.round(rewards.reduce((a: number, b: number) => a + b, 0) / rewards.length);
+    if (isNaN(priorityFeePerGas)) {
+      priorityFeePerGas = 0;
+    }
 
     return {
       gas: Math.ceil(gas * 1.5),

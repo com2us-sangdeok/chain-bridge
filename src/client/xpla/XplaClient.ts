@@ -142,6 +142,7 @@ export class XplaClient extends Connection implements Client {
 
   async getTx(txhash: string): Promise<Transaction> {
     const txInfo = await this.provider.tx.txInfo(txhash);
+    const contractAddresses = txInfo.logs?.find((l) => l.eventsByType["instantiate"])?.eventsByType["instantiate"]["_contract_address"];
     return {
       txhash: txInfo.txhash,
       blockNumber: txInfo.height,
@@ -152,7 +153,8 @@ export class XplaClient extends Connection implements Client {
         fee: txInfo.tx.auth_info.fee.toData()
       } as XplaTxFee,
       data: txInfo.tx.body.toData(),
-      logs: txInfo.logs?.map(value => value.toData())!
+      logs: txInfo.logs?.map(value => value.toData())!,
+      ...(contractAddresses && contractAddresses.length > 0 && { contractAddress: contractAddresses[0] })
     };
   }
 
