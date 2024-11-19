@@ -14,7 +14,7 @@ import {
   LCDClient,
   Msg,
   SignerData,
-  SignOptions, SignDoc, SimplePublicKey
+  SignOptions, SignDoc, SimplePublicKey, TxInfo
 } from "@xpla/xpla.js";
 import { Tx } from "@xpla/xpla.js/dist/core";
 import { Balance } from "../../type/Balance";
@@ -142,20 +142,24 @@ export class XplaClient extends Connection implements Client {
 
   async getTx(txhash: string): Promise<Transaction> {
     const txInfo = await this.provider.tx.txInfo(txhash);
-    const contractAddresses = txInfo.logs?.find((l) => l.eventsByType["instantiate"])?.eventsByType["instantiate"]["_contract_address"];
-    return {
-      txhash: txInfo.txhash,
-      blockNumber: txInfo.height,
-      status: txInfo.code == 0 ? "success" : "failure",
-      fee: {
-        gasUsed: txInfo.gas_used,
-        gasWanted: txInfo.gas_wanted,
-        fee: txInfo.tx.auth_info.fee.toData()
-      } as XplaTxFee,
-      data: txInfo.tx.body.toData(),
-      logs: txInfo.logs?.map(value => value.toData())!,
-      ...(contractAddresses && contractAddresses.length > 0 && { contractAddress: contractAddresses[0] })
-    };
+    if (txInfo instanceof TxInfo) {
+      const contractAddresses = txInfo.logs?.find((l) => l.eventsByType["instantiate"])?.eventsByType["instantiate"]["_contract_address"];
+      return {
+        txhash: txInfo.txhash,
+        blockNumber: txInfo.height,
+        status: txInfo.code == 0 ? "success" : "failure",
+        fee: {
+          gasUsed: txInfo.gas_used,
+          gasWanted: txInfo.gas_wanted,
+          fee: txInfo.tx.auth_info.fee!.toData()
+        } as XplaTxFee,
+        data: txInfo.tx.body.toData(),
+        logs: txInfo.logs?.map(value => value.toData())!,
+        ...(contractAddresses && contractAddresses.length > 0 && { contractAddress: contractAddresses[0] })
+      };
+    } else {
+      throw new TransactionError(txInfo.message)
+    }
   }
 
   async createTx(txOptions: XplaCreateTxData, encoded: boolean = false): Promise<any> {
@@ -224,22 +228,20 @@ export class XplaClient extends Connection implements Client {
     };
   }
 
-  async signTx(unsignedTx: any, signer: Signer): Promise<string> {
+  async signTx(unsignedTx: any, signer: Signer, options?: { nonce?: number, reverse?: boolean }): Promise<string> {
     let decodedTx: Tx;
     if(typeof unsignedTx ==='object') {
       decodedTx = unsignedTx;
     } else {
       decodedTx = this.provider.tx.decode(unsignedTx);
     }
-    const emptySignIndex = decodedTx.auth_info.signer_infos.findIndex(value => value.sequence != null);
 
     const publicKey = await signer.getPublicKey(true);
     const wallet = new XplaSignerKey(signer, publicKey);
     const accountState = await this.getAccountState(wallet.accAddress);
 
-    if (emptySignIndex != -1) {
-      accountState.nonce = decodedTx.auth_info.signer_infos[emptySignIndex].sequence;
-      decodedTx.auth_info.signer_infos.splice(emptySignIndex, 1);
+    if (options && options.nonce) {
+      accountState.nonce = options.nonce;
     }
 
     // For Multisig
@@ -262,7 +264,6 @@ export class XplaClient extends Connection implements Client {
               decodedTx.body,
             ));
             const signature = JSON.stringify(signInfo.toData());
-            console.log(signature)
             return Buffer.from(signature).toString('base64');
           }
         }
@@ -276,7 +277,24 @@ export class XplaClient extends Connection implements Client {
       signMode: 127, //exSignMode.SIGN_MODE_LEGACY_AMINO_JSON
     };
 
+
+    // bugfix signature verification failed;
+    if (decodedTx.auth_info?.fee) {
+      if (decodedTx.auth_info.fee.granter === '') {
+        decodedTx.auth_info.fee.granter = undefined;
+      }
+      if (decodedTx.auth_info.fee.payer === '') {
+        decodedTx.auth_info.fee.payer = undefined;
+      }
+    }
+
     const signedTx = await wallet.signTx(decodedTx, signOptions);
+
+    if (options && options.reverse) {
+      signedTx.signatures.reverse();
+      signedTx.auth_info.signer_infos.reverse();
+    }
+
     return this.provider.tx.encode(signedTx);
   }
 
@@ -402,7 +420,7 @@ export class XplaClient extends Connection implements Client {
   // Utility Methods
   // -------------------------------------------------------------------------
 
-  decodeTx(encodedTx: string): any {
+  decodeTx(encodedTx: string): Tx {
     if(typeof encodedTx === 'object') {
       return encodedTx;
     }
@@ -418,6 +436,10 @@ export class XplaClient extends Connection implements Client {
   }
   async isEOA(address: string): Promise<boolean> {
     return /([a-z0-9]{1,20}1[a-z0-9]{38}$)/.test(address);
+  }
+
+  calcTxHash(signedTx: any): string {
+    return hashToHex(this.encodeTx(signedTx));
   }
 
   // -------------------------------------------------------------------------

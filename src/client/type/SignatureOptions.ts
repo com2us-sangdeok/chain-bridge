@@ -1,4 +1,4 @@
-import { SignOptions } from "@terra-money/terra.js";
+import { SignOptions } from "@xpla/xpla.js";
 
 export interface SignatureOptions {
   /**

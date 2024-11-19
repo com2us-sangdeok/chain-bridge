@@ -1,7 +1,7 @@
 {
   "name": "@blockchain/chain-bridge",
-  "version": "1.1.0",
-  "pre_version": "1.0.9",
+  "version": "1.2.1",
+  "pre_version": "1.1.5",
   "description": "a npm package that connects to blockchains",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -28,7 +28,6 @@
     "tslib": "^2.6.2"
   },
   "devDependencies": {
-    "@terra-money/terra.js": "^3.1.10",
     "@types/app-root-path": "^1.2.6",
     "@types/chai": "^4.3.6",
     "@types/chai-as-promised": "^7.1.6",
@@ -36,7 +35,7 @@
     "@types/mocha": "^10.0.1",
     "@types/node": "^20.6.5",
     "@types/secp256k1": "^4.0.6",
-    "@xpla/xpla.js": "^1.0.0",
+    "@xpla/xpla.js": "^1.6.0",
     "chai": "^4.3.8",
     "chai-as-promised": "^7.1.1",
     "chai-string": "^1.5.0",
@@ -47,16 +46,12 @@
     "web3": "^4.1.2"
   },
   "peerDependencies": {
-    "@terra-money/terra.js": "^3.1.10",
-    "@xpla/xpla.js": "^1.0.0",
+    "@xpla/xpla.js": "^1.6.0",
     "ts-node": "^10.9.1",
     "web3": "^4.1.2"
   },
   "peerDependenciesMeta": {
     "@xpla/xpla.js": {
-      "optional": true
-    },
-    "@terra-money/terra.js": {
       "optional": true
     },
     "web3": {

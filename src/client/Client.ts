@@ -19,7 +19,7 @@ export interface Client {
 
   createTx(txOptions: CreateTxData, encoded?: boolean): Promise<any>
 
-  signTx(unsignedTx: any, signer: Signer): Promise<string>
+  signTx(unsignedTx: any, signer: Signer, options?: any): Promise<string>
 
   signMsg(msg: string, signer: Signer): Promise<string>
 
@@ -44,6 +44,8 @@ export interface Client {
   encodeTx(tx: any): string
 
   decodeTx(encodedTx: string): any
+
+  calcTxHash(signedTx: any): string;
 
   isEOA(address: string): Promise<boolean>
 

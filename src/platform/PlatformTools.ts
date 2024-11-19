@@ -20,8 +20,6 @@ export class PlatformTools {
         case "ethereum":
         case "polygon":
           return require("web3")
-        case "terra":
-          return require("@terra-money/terra.js")
         case "xpla":
           return require("@xpla/xpla.js")
       }

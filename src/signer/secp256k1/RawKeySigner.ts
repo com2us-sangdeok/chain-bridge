@@ -1,9 +1,12 @@
-import * as secp256k1 from "secp256k1";
+// import * as secp256k1 from '@noble/secp256k1';
+import * as ethereumCryptography from 'ethereum-cryptography/secp256k1.js';
 import { Signer } from "../Signer";
 import { ChainBridgeError } from "../../error";
 
 const base64RegEx = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 const hexRegEx = /^(0x|0X)?[a-fA-F0-9]+$/;
+
+const secp256k1 = ethereumCryptography.secp256k1;
 
 export class RawKeySigner implements Signer {
   private privateKeyBuffer: Uint8Array;
@@ -35,11 +38,11 @@ export class RawKeySigner implements Signer {
   }
 
   async getPublicKey(compressed = false): Promise<Uint8Array> {
-    return secp256k1.publicKeyCreate(this.privateKeyBuffer, compressed);
+    return secp256k1.getPublicKey(this.privateKeyBuffer, compressed);
   }
 
   async sign(digest: Uint8Array): Promise<Uint8Array> {
-    const signature = secp256k1.ecdsaSign(digest, this.privateKeyBuffer);
-    return signature.signature;
+    const signature = secp256k1.sign(digest, this.privateKeyBuffer);
+    return signature.toCompactRawBytes();
   }
 }

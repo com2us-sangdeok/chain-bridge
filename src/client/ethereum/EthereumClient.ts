@@ -16,9 +16,10 @@ import { TransactionFactory, TxData, TypedTransaction, ecrecover, Common, hashMe
 import { sha3Raw } from "web3-utils";
 import { isHexPrefixed } from "web3-validator";
 import * as bip39 from "bip39";
-import * as bip32 from "bip32";
+import { BIP32Factory } from "bip32";
 import { Signer } from "../../signer";
 import { TransactionError } from "../../error/TransactionError";
+import ecc from '@bitcoinerlab/secp256k1';
 
 export class EthereumClient extends Connection implements Client {
   // -------------------------------------------------------------------------
@@ -231,12 +232,17 @@ export class EthereumClient extends Connection implements Client {
     return this._calculateSignature(msgToSign, publicKeyHash, signature);
   }
 
-  async signTx(unsignedTx: any, signer: Signer): Promise<string> {
+  async signTx(unsignedTx: any, signer: Signer, options?: { nonce?: number }): Promise<string> {
     let tx: TypedTransaction;
     if (typeof unsignedTx === 'object') {
       tx = TransactionFactory.fromTxData(unsignedTx);
     } else {
       tx = TransactionFactory.fromSerializedData(Buffer.from(unsignedTx, 'hex'));
+    }
+    if (options && options.nonce && tx.nonce != BigInt(options.nonce)) {
+      const jsonTx = tx.toJSON();
+      jsonTx.nonce = `0x${options.nonce.toString(16)}`;
+      TransactionFactory.fromTxData(jsonTx);
     }
 
     const digest = tx.getMessageToSign();
@@ -306,7 +312,7 @@ export class EthereumClient extends Connection implements Client {
     if (bip39.validateMnemonic(mnemonicOrPrivateKey)) {
       // Mnemonic
       const seed = bip39.mnemonicToSeedSync(mnemonicOrPrivateKey);
-      const node = bip32.fromSeed(seed);
+      const node = BIP32Factory(ecc).fromSeed(seed);
       const wallet = node.derivePath("m/44'/60'/0'/0/0");
       mnemonic = mnemonicOrPrivateKey;
       privateKey = this.provider.utils.bytesToHex(Uint8Array.from(wallet.privateKey!))
@@ -327,7 +333,7 @@ export class EthereumClient extends Connection implements Client {
   // Utility Methods
   // -------------------------------------------------------------------------
 
-  decodeTx(encodedTx: string): any {
+  decodeTx(encodedTx: string): TypedTransaction {
     if (typeof encodedTx === 'object') {
       return encodedTx;
     }
@@ -354,6 +360,10 @@ export class EthereumClient extends Connection implements Client {
     } finally {
       return result;
     }
+  }
+
+  calcTxHash(signedTx: any): string {
+    return `0x${Buffer.from(this.decodeTx(signedTx).hash()).toString('hex')}`;
   }
 
   generateKey(): string {
